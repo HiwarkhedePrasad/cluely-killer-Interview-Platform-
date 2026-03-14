@@ -1,0 +1,108 @@
+/* ============================================================
+   BASE RESET + GLOBAL STYLES
+   Establishes document-level defaults. Must load after tokens.
+   ============================================================ */
+
+/* ── CSS Reset ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  font-synthesis: none;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--type-size-body);
+  line-height: var(--type-leading-body);
+  color: var(--color-text-primary);
+  background-color: var(--color-surface-ground);
+  min-height: 100vh;
+  overflow: hidden; /* Desktop app — no body scroll */
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Links ── */
+a {
+  color: var(--color-text-accent);
+  text-decoration: none;
+  transition: color var(--duration-state) var(--ease-default);
+}
+a:hover {
+  color: var(--color-action-primary-hover);
+}
+
+/* ── Focus Visible (theme-agnostic, uses icons/patterns not color alone) ── */
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+/* Remove default focus ring for pointer interactions */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ── Selection ── */
+::selection {
+  background-color: var(--color-glow-accent);
+  color: var(--color-text-primary);
+}
+
+/* ── Scrollbar (custom for dark UI) ── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+}
+
+/* ── Prevent user-select on UI chrome (not content areas) ── */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Truncation Utility ── */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

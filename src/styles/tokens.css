@@ -1,0 +1,215 @@
+/* ============================================================
+   DESIGN TOKENS — Black & White Monochrome Theme
+   Tier 1: Global Raw Values (never consumed directly)
+   Tier 2: Semantic Alias Tokens (role-based, consumed by components)
+   ============================================================ */
+
+/* ── Tier 1: Global Raw Palette (Pure B&W) ── */
+:root {
+  --raw-neutral-0: #000000;
+  --raw-neutral-50: #080808;
+  --raw-neutral-100: #0e0e0e;
+  --raw-neutral-150: #141414;
+  --raw-neutral-200: #1a1a1a;
+  --raw-neutral-250: #222222;
+  --raw-neutral-300: #2c2c2c;
+  --raw-neutral-400: #3d3d3d;
+  --raw-neutral-500: #555555;
+  --raw-neutral-600: #737373;
+  --raw-neutral-700: #919191;
+  --raw-neutral-800: #b0b0b0;
+  --raw-neutral-900: #d4d4d4;
+  --raw-neutral-950: #ebebeb;
+  --raw-neutral-1000: #ffffff;
+
+  /* Accent — Pure White highlights on black */
+  --raw-accent-400: #ffffff;
+  --raw-accent-500: #e0e0e0;
+  --raw-accent-600: #c0c0c0;
+  --raw-accent-glow: rgba(255, 255, 255, 0.1);
+
+  /* Status Colors (desaturated for monochrome) */
+  --raw-success-400: #5cdb5c;
+  --raw-success-500: #7ae87a;
+  --raw-success-muted: rgba(92, 219, 92, 0.12);
+
+  --raw-error-400: #e05050;
+  --raw-error-500: #f07070;
+  --raw-error-muted: rgba(224, 80, 80, 0.12);
+
+  --raw-warning-400: #d4a030;
+  --raw-warning-500: #e8b840;
+  --raw-warning-muted: rgba(212, 160, 48, 0.12);
+
+  --raw-info-400: #50b0d0;
+  --raw-info-500: #70c8e0;
+  --raw-info-muted: rgba(80, 176, 208, 0.12);
+}
+
+/* ── Tier 2: Semantic Alias Tokens (Dark Mode — Default) ── */
+:root {
+  /* Surface Elevation (lightness-step-based) */
+  --color-surface-ground: var(--raw-neutral-50);
+  --color-surface-base: var(--raw-neutral-100);
+  --color-surface-raised: var(--raw-neutral-150);
+  --color-surface-overlay: var(--raw-neutral-200);
+  --color-surface-elevated: var(--raw-neutral-250);
+  --color-surface-highest: var(--raw-neutral-300);
+
+  /* Text Hierarchy */
+  --color-text-primary: var(--raw-neutral-1000);
+  --color-text-secondary: var(--raw-neutral-800);
+  --color-text-tertiary: var(--raw-neutral-600);
+  --color-text-disabled: var(--raw-neutral-500);
+  --color-text-inverse: var(--raw-neutral-50);
+  --color-text-accent: var(--raw-neutral-1000);
+
+  /* Border */
+  --color-border-default: var(--raw-neutral-300);
+  --color-border-subtle: var(--raw-neutral-200);
+  --color-border-strong: var(--raw-neutral-400);
+  --color-border-focus: var(--raw-neutral-1000);
+
+  /* Interactive */
+  --color-action-primary: var(--raw-neutral-1000);
+  --color-action-primary-hover: var(--raw-neutral-900);
+  --color-action-primary-active: var(--raw-neutral-800);
+  --color-action-ghost-hover: rgba(255, 255, 255, 0.06);
+  --color-action-ghost-active: rgba(255, 255, 255, 0.1);
+
+  /* Status */
+  --color-status-success: var(--raw-success-400);
+  --color-status-success-bg: var(--raw-success-muted);
+  --color-status-error: var(--raw-error-400);
+  --color-status-error-bg: var(--raw-error-muted);
+  --color-status-warning: var(--raw-warning-400);
+  --color-status-warning-bg: var(--raw-warning-muted);
+  --color-status-info: var(--raw-info-400);
+  --color-status-info-bg: var(--raw-info-muted);
+
+  /* Glow */
+  --color-glow-accent: var(--raw-accent-glow);
+}
+
+/* ── Tier 2: Light Mode ── */
+:root[data-theme="light"] {
+  --color-surface-ground: #f5f5f5;
+  --color-surface-base: #ffffff;
+  --color-surface-raised: #fafafa;
+  --color-surface-overlay: #f0f0f0;
+  --color-surface-elevated: #e8e8e8;
+  --color-surface-highest: #dddddd;
+
+  --color-text-primary: var(--raw-neutral-0);
+  --color-text-secondary: var(--raw-neutral-400);
+  --color-text-tertiary: var(--raw-neutral-500);
+  --color-text-disabled: var(--raw-neutral-700);
+  --color-text-inverse: var(--raw-neutral-950);
+  --color-text-accent: var(--raw-neutral-0);
+
+  --color-border-default: #d4d4d4;
+  --color-border-subtle: #e8e8e8;
+  --color-border-strong: #b0b0b0;
+  --color-border-focus: var(--raw-neutral-0);
+
+  --color-action-primary: var(--raw-neutral-0);
+  --color-action-primary-hover: var(--raw-neutral-200);
+  --color-action-primary-active: var(--raw-neutral-300);
+  --color-action-ghost-hover: rgba(0, 0, 0, 0.04);
+  --color-action-ghost-active: rgba(0, 0, 0, 0.08);
+
+  --color-glow-accent: rgba(0, 0, 0, 0.06);
+}
+
+/* ── Spacing Scale (4pt base unit) ── */
+:root {
+  --space-unit: 4px;
+
+  --space-gap-xs: calc(var(--space-unit) * 1);
+  --space-gap-sm: calc(var(--space-unit) * 2);
+  --space-gap-md: calc(var(--space-unit) * 3);
+  --space-gap-lg: calc(var(--space-unit) * 4);
+  --space-gap-xl: calc(var(--space-unit) * 6);
+  --space-gap-2xl: calc(var(--space-unit) * 8);
+  --space-gap-3xl: calc(var(--space-unit) * 12);
+
+  --space-inset-xs: calc(var(--space-unit) * 1);
+  --space-inset-sm: calc(var(--space-unit) * 2);
+  --space-inset-md: calc(var(--space-unit) * 3);
+  --space-inset-lg: calc(var(--space-unit) * 4);
+  --space-inset-xl: calc(var(--space-unit) * 6);
+
+  --layout-margin: calc(var(--space-unit) * 4);
+  --layout-gutter: calc(var(--space-unit) * 3);
+  --layout-max-width: 1920px;
+}
+
+/* ── Border Radius ── */
+:root {
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+}
+
+/* ── Transitions ── */
+:root {
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --duration-micro: 100ms;
+  --duration-state: 200ms;
+  --duration-page: 350ms;
+}
+
+/* ── Elevation (light mode shadow, dark mode = none) ── */
+:root[data-theme="light"] {
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.16);
+}
+
+:root {
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+}
+
+/* ── Z-Index ── */
+:root {
+  --z-base: 0;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 500;
+  --z-modal: 1000;
+  --z-toast: 1500;
+  --z-proctor: 9999;
+}
+
+/* ── Focus Ring ── */
+:root {
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-color: var(--color-border-focus);
+}
+
+/* ── Hit Targets ── */
+:root {
+  --hit-target-min: 44px;
+}
+
+/* ── Reduced Motion ── */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-micro: 0ms;
+    --duration-state: 0ms;
+    --duration-page: 0ms;
+  }
+}

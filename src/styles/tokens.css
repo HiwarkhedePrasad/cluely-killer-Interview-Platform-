@@ -89,6 +89,16 @@
 
   /* Glow */
   --color-glow-accent: var(--raw-accent-glow);
+
+  /* Legacy aliases (kept for older styles, mapped to monochrome theme) */
+  --color-primary: var(--color-action-primary);
+  --color-primary-hover: var(--color-action-primary-hover);
+  --color-primary-active: var(--color-action-primary-active);
+  --color-primary-alpha: rgba(255, 255, 255, 0.1);
+  --color-surface-primary: var(--color-surface-base);
+  --color-surface-secondary: var(--color-surface-raised);
+  --color-surface-tertiary: var(--color-surface-overlay);
+  --color-border: var(--color-border-default);
 }
 
 /* ── Tier 2: Light Mode ── */
@@ -119,6 +129,16 @@
   --color-action-ghost-active: rgba(0, 0, 0, 0.08);
 
   --color-glow-accent: rgba(0, 0, 0, 0.06);
+
+  /* Legacy aliases (light mode) */
+  --color-primary: var(--color-action-primary);
+  --color-primary-hover: var(--color-action-primary-hover);
+  --color-primary-active: var(--color-action-primary-active);
+  --color-primary-alpha: rgba(0, 0, 0, 0.08);
+  --color-surface-primary: var(--color-surface-base);
+  --color-surface-secondary: var(--color-surface-raised);
+  --color-surface-tertiary: var(--color-surface-overlay);
+  --color-border: var(--color-border-default);
 }
 
 /* ── Spacing Scale (4pt base unit) ── */

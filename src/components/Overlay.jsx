@@ -85,7 +85,7 @@ const Overlay = () => {
     <div
       className="fixed inset-0 w-screen h-screen overflow-hidden z-[99999]"
       style={{
-        backgroundColor: "rgba(15, 23, 42, 0.45)",
+        backgroundColor: "rgba(14, 14, 14, 0.45)",
         backdropFilter: "blur(4px)",
         cursor: "none",
       }}

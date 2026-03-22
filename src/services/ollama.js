@@ -1,9 +1,11 @@
 /**
  * Ollama API Client
- * Connects to local Ollama server for LLM chat capabilities
+ * Connects to Ollama-compatible endpoint (local or cloud)
  */
 
-const OLLAMA_BASE_URL = 'http://localhost:11434';
+const OLLAMA_BASE_URL = (import.meta.env.VITE_OLLAMA_BASE_URL || 'http://localhost:11434').replace(/\/$/, '');
+const OLLAMA_API_KEY = import.meta.env.VITE_OLLAMA_API_KEY || '';
+const DEFAULT_MODEL = import.meta.env.VITE_OLLAMA_MODEL || 'llama3';
 
 /**
  * Interview system prompt for the AI interviewer
@@ -61,22 +63,27 @@ export async function listModels() {
 }
 
 /**
- * Send a chat message to Ollama and get a response
+ * Send a chat message to an Ollama-compatible endpoint and get a response
  * @param {Object} options
- * @param {string} options.model - Model name (e.g., 'llama3', 'codellama')
+ * @param {string} options.model - Model name (e.g., 'llama3', 'llama3.1:8b')
  * @param {Array} options.messages - Chat history [{role: 'user'|'assistant'|'system', content: string}]
  * @param {boolean} options.stream - Whether to stream the response
  * @param {Function} options.onToken - Callback for each streamed token (if streaming)
  * @returns {Promise<string>} The assistant's response
  */
 export async function chat({ model, messages, stream = false, onToken = null }) {
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  if (OLLAMA_API_KEY) {
+    headers.Authorization = `Bearer ${OLLAMA_API_KEY}`;
+  }
+
   const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify({
-      model,
+      model: model || DEFAULT_MODEL,
       messages,
       stream,
     }),

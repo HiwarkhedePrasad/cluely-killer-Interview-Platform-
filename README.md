@@ -35,6 +35,16 @@ This platform is specifically engineered to prevent candidates from using cheati
 
 ## ✨ Features
 
+### 🤖 AI Voice Interview System (NEW!)
+- **3 Distinct AI Agents** conducting the interview:
+  - **Peer** (Alex Chen) - Friendly junior developer asking about fundamentals
+  - **Team Lead** (Sarah Mitchell) - Professional tech lead evaluating architecture
+  - **Veteran** (James Rodriguez) - Senior principal engineer diving deep
+- **Voice-to-Voice** interaction using Web Speech API
+- **Smart Resume Parsing** - Automatically extracts skills, projects, and experience
+- **Project-Based Questions** - Focus on real work, NO DSA/LeetCode
+- **Interview Code System** - Generate unique codes for session management
+
 ### 📹 Video Call Interface
 - Real-time camera preview with picture-in-picture mode
 - Microphone and camera toggle controls
@@ -168,9 +178,28 @@ cd cluely-killer-interview-platform
 # Install dependencies
 pnpm install
 
+# Install and start Ollama (for AI agents)
+# Download from https://ollama.ai
+ollama serve
+ollama pull llama3
+
 # Start development server
 pnpm tauri dev
 ```
+
+### Use fast cloud Ollama endpoint
+
+This app supports any Ollama-compatible cloud endpoint (for faster responses) via Vite env vars.
+
+Create a `.env.local` file in the project root:
+
+```bash
+VITE_OLLAMA_BASE_URL=https://your-ollama-cloud-endpoint
+VITE_OLLAMA_API_KEY=your_api_key_if_required
+VITE_OLLAMA_MODEL=llama3.1:8b
+```
+
+If these vars are not set, it defaults to local Ollama at `http://localhost:11434` with model `llama3`.
 
 ### Build for Production
 

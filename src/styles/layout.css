@@ -334,7 +334,7 @@
 }
 
 .video-fullscreen__participant--main {
-  box-shadow: 0 0 40px rgba(99, 102, 241, 0.08);
+  box-shadow: 0 0 40px rgba(255, 255, 255, 0.08);
 }
 
 .video-fullscreen__avatar {
@@ -465,11 +465,11 @@
 }
 
 .video-ctrl-btn--active {
-  background: rgba(99, 102, 241, 0.3);
-  color: var(--raw-accent-500);
+  background: rgba(255, 255, 255, 0.22);
+  color: var(--raw-accent-400);
 }
 .video-ctrl-btn--active:hover {
-  background: rgba(99, 102, 241, 0.4);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .video-ctrl-btn--code {
@@ -480,6 +480,11 @@
 }
 .video-ctrl-btn--code:hover {
   background: var(--raw-neutral-900);
+}
+
+.video-ctrl-btn--code.video-ctrl-btn--transitioning {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .video-ctrl-btn--end {
@@ -494,6 +499,73 @@
   width: 1px;
   height: 24px;
   background: rgba(255, 255, 255, 0.15);
+}
+
+/* ── Video Call with Agent Panel Layout ── */
+.video-fullscreen--with-agents {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  grid-template-rows: 56px 1fr auto;
+  gap: 0;
+}
+
+.video-fullscreen--transitioning {
+  opacity: 0.4;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+.video-fullscreen--with-agents .video-fullscreen__topbar {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  position: relative;
+}
+
+.video-fullscreen__main {
+  grid-column: 1;
+  grid-row: 2;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-gap-xl);
+}
+
+.video-fullscreen__candidate {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(145deg, var(--raw-neutral-200), var(--raw-neutral-100));
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-subtle);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-fullscreen__avatar--large {
+  width: 120px;
+  height: 120px;
+}
+
+.video-fullscreen__agents {
+  grid-column: 2;
+  grid-row: 2;
+  background: linear-gradient(180deg, rgba(14, 14, 14, 0.95), rgba(26, 26, 26, 0.95));
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  padding: var(--space-gap-md);
+  overflow-y: auto;
+}
+
+.video-fullscreen--with-agents .video-fullscreen__controls {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  position: relative;
+  bottom: auto;
+  left: auto;
+  right: auto;
 }
 
 /* ================================================================

@@ -8,9 +8,10 @@ import {
   MessageSquare, X, GripVertical, Bot, PanelRightClose, PanelRight
 } from 'lucide-react';
 import './App.css';
-import { AIChat } from './components/AIChat';
+import { AgentPanel } from './components/AgentPanel';
+import { InterviewSetup } from './components/InterviewSetup';
 import { VoiceControls } from './components/VoiceControls';
-import { useOllama } from './hooks/useOllama';
+import { useAgentVoice } from './hooks/useAgentVoice';
 
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS
@@ -193,6 +194,9 @@ const SAMPLE_QUESTIONS = [
    TIMER HOOK
    ═══════════════════════════════════════════════════════════ */
 
+const INTERVIEW_DURATION_SECS = 20 * 60; // 20 minutes
+const LAST_MINUTE_SECS = 60;
+
 function useTimer() {
   const [seconds, setSeconds] = useState(0);
   const intervalRef = useRef(null);
@@ -212,6 +216,13 @@ function useTimer() {
     setRunning(false);
   }, []);
 
+  const reset = useCallback(() => {
+    clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    setRunning(false);
+    setSeconds(0);
+  }, []);
+
   const format = useCallback(() => {
     const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
     const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
@@ -219,7 +230,11 @@ function useTimer() {
     return `${h}:${m}:${s}`;
   }, [seconds]);
 
-  return { seconds, running, start, stop, format };
+  const remaining = INTERVIEW_DURATION_SECS - seconds;
+  const isLastMinute = running && remaining > 0 && remaining <= LAST_MINUTE_SECS;
+  const isTimeUp = seconds >= INTERVIEW_DURATION_SECS;
+
+  return { seconds, running, start, stop, reset, format, remaining, isLastMinute, isTimeUp };
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -325,44 +340,54 @@ function VideoFeed({ stream, muted = true, className = '', style = {} }) {
    VIDEO CALL SCREEN (Full-screen, default view)
    ═══════════════════════════════════════════════════════════ */
 
-function VideoCallScreen({ onToggleCoding, videoOn, setVideoOn, micOn, setMicOn, screenShare, setScreenShare, timer, stream }) {
+function VideoCallScreen({
+  onToggleCoding, videoOn, setVideoOn, micOn, setMicOn, screenShare, setScreenShare,
+  timer, stream, candidateData, agentVoice, showAgentPanel, setShowAgentPanel,
+  isPendingTransition = false
+}) {
+  const isLastMinute = timer.isLastMinute;
+  const timerColor = isLastMinute ? 'var(--color-status-error)' : '#fff';
+  const timerPulse = isLastMinute;
   return (
-    <div className="video-fullscreen">
-      {/* Main video grid */}
-      <div className="video-fullscreen__grid">
-        {/* Interviewer — placeholder (remote peer would go here) */}
-        <div className="video-fullscreen__participant video-fullscreen__participant--main">
-          <div className="video-fullscreen__avatar">
-            <Users size={48} />
-          </div>
-          <div className="video-fullscreen__name">
-            <span className="type-label" style={{ color: '#fff', textTransform: 'none', letterSpacing: 'normal' }}>Interviewer</span>
-          </div>
-          <div className="video-fullscreen__status-badge">
-            <Mic size={12} />
-          </div>
-        </div>
-
-        {/* You — live camera feed */}
-        <div className="video-fullscreen__participant">
+    <div className={`video-fullscreen video-fullscreen--with-agents${isPendingTransition ? ' video-fullscreen--transitioning' : ''}`}>
+      {/* Main content area */}
+      <div className="video-fullscreen__main">
+        {/* Candidate video */}
+        <div className="video-fullscreen__candidate">
           {stream && videoOn ? (
             <VideoFeed stream={stream} muted={true} />
           ) : (
-            <div className="video-fullscreen__avatar">
-              <Users size={48} />
+            <div className="video-fullscreen__avatar video-fullscreen__avatar--large">
+              <Users size={64} />
             </div>
           )}
           <div className="video-fullscreen__name">
-            <span className="type-label" style={{ color: '#fff', textTransform: 'none', letterSpacing: 'normal' }}>You (Candidate)</span>
+            <span className="type-label" style={{ color: '#fff', textTransform: 'none', letterSpacing: 'normal' }}>
+              {candidateData?.name || 'Candidate'}
+            </span>
           </div>
           {!videoOn && (
             <div className="video-fullscreen__camera-off">
-              <VideoOff size={24} />
+              <VideoOff size={32} />
               <span className="type-caption">Camera Off</span>
             </div>
           )}
         </div>
       </div>
+
+      {/* Agent Panel on the right */}
+      {showAgentPanel && (
+        <div className="video-fullscreen__agents">
+          <AgentPanel
+            agentStatuses={agentVoice?.agentStatuses || {}}
+            activeAgent={agentVoice?.activeAgent}
+            isInterviewActive={agentVoice?.isInterviewActive || false}
+            currentTranscript={agentVoice?.currentTranscript || ''}
+            onStartInterview={() => agentVoice?.startInterview(candidateData)}
+            onStopInterview={() => agentVoice?.stopListening()}
+          />
+        </div>
+      )}
 
       {/* Top bar overlay */}
       <div className="video-fullscreen__topbar">
@@ -374,10 +399,23 @@ function VideoCallScreen({ onToggleCoding, videoOn, setVideoOn, micOn, setMicOn,
           <span className="status-dot status-dot--live" />
           <span className="type-caption" style={{ color: 'var(--color-status-success)' }}>Live</span>
           <span className="divider--vertical" style={{ height: '16px' }} />
-          <Clock size={14} style={{ color: 'var(--color-text-tertiary)' }} />
-          <span className="type-mono" style={{ color: '#fff' }}>{timer.format()}</span>
+          <Clock size={14} style={{ color: isLastMinute ? 'var(--color-status-error)' : 'var(--color-text-tertiary)' }} />
+          <span
+            className={`type-mono ${timerPulse ? 'timer-warning' : ''}`}
+            style={{ color: timerColor, fontWeight: timerPulse ? 700 : 400 }}
+          >
+            {timer.format()}
+          </span>
         </div>
       </div>
+
+      {/* Last minute warning banner */}
+      {isLastMinute && (
+        <div className="last-minute-banner">
+          <AlertCircle size={16} />
+          <span>Last minute — finish your current answer</span>
+        </div>
+      )}
 
       {/* Bottom controls */}
       <div className="video-fullscreen__controls">
@@ -409,12 +447,13 @@ function VideoCallScreen({ onToggleCoding, videoOn, setVideoOn, micOn, setMicOn,
           <span className="video-controls-divider" />
 
           <button
-            className="video-ctrl-btn video-ctrl-btn--code"
-            onClick={onToggleCoding}
-            title="Open coding environment"
+            className={`video-ctrl-btn video-ctrl-btn--code ${isPendingTransition ? 'video-ctrl-btn--transitioning' : ''}`}
+            onClick={isPendingTransition ? undefined : onToggleCoding}
+            title={isPendingTransition ? 'Switching to coding...' : 'Open coding environment'}
+            disabled={isPendingTransition}
           >
             <Code2 size={20} />
-            <span>Start Coding</span>
+            <span>{isPendingTransition ? 'Switching...' : 'Start Coding'}</span>
           </button>
 
           <span className="video-controls-divider" />
@@ -526,7 +565,9 @@ function CodingWorkspace({
   onBackToVideo,
   videoOn, micOn, setVideoOn, setMicOn,
   timer, stream,
-  showAIChat, setShowAIChat
+  showAgentPanel, setShowAgentPanel,
+  candidateData,
+  agentVoice
 }) {
   const editorRef = useRef(null);
   const speakResponseRef = useRef(null);
@@ -539,10 +580,11 @@ function CodingWorkspace({
   // Get current question text for AI context
   const currentQuestionText = questions[activeQuestion]?.title + ': ' + questions[activeQuestion]?.description;
 
-  // Handle voice transcript - send to AI
+  // Handle voice transcript - send to active agent
   const handleVoiceTranscript = async (transcript) => {
-    // This will be handled by AIChat component
-    console.log('Voice transcript:', transcript);
+    if (agentVoice && transcript.trim()) {
+      await agentVoice.sendToActiveAgent(transcript);
+    }
   };
 
   // Store speak function reference for TTS
@@ -589,14 +631,14 @@ function CodingWorkspace({
           </button>
           <span className="divider--vertical" style={{ height: '20px' }} />
           
-          {/* AI Chat Toggle */}
+          {/* Agent Panel Toggle */}
           <button 
-            className={`btn-icon ${showAIChat ? 'btn-icon--active' : ''}`} 
-            onClick={() => setShowAIChat(!showAIChat)} 
-            title={showAIChat ? 'Hide AI Chat' : 'Show AI Chat'}
-            style={showAIChat ? { color: 'var(--color-primary)', background: 'var(--color-primary-alpha)' } : {}}
+            className={`btn-icon ${showAgentPanel ? 'btn-icon--active' : ''}`} 
+            onClick={() => setShowAgentPanel(!showAgentPanel)} 
+            title={showAgentPanel ? 'Hide Agents' : 'Show Agents'}
+            style={showAgentPanel ? { color: 'var(--color-text-primary)', background: 'var(--color-primary-alpha)' } : {}}
           >
-            {showAIChat ? <PanelRightClose size={16} /> : <Bot size={16} />}
+            {showAgentPanel ? <PanelRightClose size={16} /> : <Bot size={16} />}
           </button>
           
           <button className="btn-icon" onClick={onBackToVideo} title="Back to video view">
@@ -605,7 +647,7 @@ function CodingWorkspace({
         </div>
       </div>
 
-      <div className="workspace" style={{ display: 'grid', gridTemplateColumns: showAIChat ? '280px 1fr 380px' : '280px 1fr', gap: 'var(--space-md)' }}>
+      <div className="workspace" style={{ display: 'grid', gridTemplateColumns: showAgentPanel ? '280px 1fr 320px' : '280px 1fr', gap: 'var(--space-md)' }}>
         {/* Sidebar — Questions */}
         <div className="workspace-sidebar no-select">
           <div className="questions-list">
@@ -779,14 +821,16 @@ function CodingWorkspace({
           </div>
         </div>
 
-        {/* AI Chat Panel */}
-        {showAIChat && (
-          <div className="workspace-ai-chat">
-            <AIChat
-              currentQuestion={currentQuestionText}
-              currentCode={code}
-              currentLanguage={language}
-              onStartInterview={() => {}}
+        {/* Agent Panel */}
+        {showAgentPanel && (
+          <div className="workspace-agent-panel">
+            <AgentPanel
+              agentStatuses={agentVoice?.agentStatuses || {}}
+              activeAgent={agentVoice?.activeAgent}
+              isInterviewActive={agentVoice?.isInterviewActive || false}
+              currentTranscript={agentVoice?.currentTranscript || ''}
+              onStartInterview={() => agentVoice?.startInterview(candidateData)}
+              onStopInterview={() => agentVoice?.stopListening()}
             />
           </div>
         )}
@@ -804,20 +848,369 @@ function CodingWorkspace({
 }
 
 /* ═══════════════════════════════════════════════════════════
+   REPORT DOWNLOAD HELPER
+   ═══════════════════════════════════════════════════════════ */
+
+function buildReportHTML(report, candidateData) {
+  const avgScore = report.qa_analysis.length > 0
+    ? (report.qa_analysis.reduce((sum, qa) => sum + qa.quality_score, 0) / report.qa_analysis.length).toFixed(1)
+    : 'N/A';
+
+  const qaRows = report.qa_analysis.map((qa, idx) => `
+    <div class="qa-item">
+      <div class="qa-header">
+        <span class="badge">${qa.topic}</span>
+        <span class="score">${qa.quality_score}/10</span>
+      </div>
+      <p class="question"><strong>Q${idx + 1}:</strong> ${qa.question}</p>
+      <p class="answer"><strong>Your Answer:</strong> ${qa.candidate_answer || '<em>No answer provided</em>'}</p>
+      <p class="preferred"><strong>Preferred Answer:</strong> ${qa.preferred_answer}</p>
+      <p class="feedback ${qa.quality_score >= 7 ? 'good' : 'warn'}">${qa.feedback}</p>
+    </div>
+  `).join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interview Report — ${candidateData?.name || 'Candidate'}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0e0e0e; color: #e0e0e0; padding: 40px; line-height: 1.6; }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 1.8rem; margin-bottom: 8px; color: #fff; }
+  h2 { font-size: 1.2rem; margin: 28px 0 12px; color: #fff; border-bottom: 1px solid #2c2c2c; padding-bottom: 8px; }
+  .meta { color: #888; font-size: 0.9rem; margin-bottom: 32px; }
+  .summary-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+  .card { background: #1a1a1a; border: 1px solid #2c2c2c; border-radius: 10px; padding: 20px; text-align: center; }
+  .card.big .val { font-size: 2.5rem; font-weight: 700; color: #7c6af7; font-family: monospace; }
+  .card .val { font-size: 1.8rem; font-weight: 600; color: #fff; font-family: monospace; }
+  .card .lbl { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-top: 4px; }
+  .section { margin-bottom: 32px; }
+  ul { list-style: none; padding: 0; }
+  ul li { padding: 6px 0; display: flex; align-items: flex-start; gap: 8px; color: #aaa; }
+  .qalist { display: flex; flex-direction: column; gap: 20px; }
+  .qa-item { background: #1a1a1a; border: 1px solid #2c2c2c; border-radius: 10px; padding: 20px; }
+  .qa-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .badge { background: #2a2a3a; color: #a0a0d0; padding: 3px 10px; border-radius: 20px; font-size: 0.8rem; }
+  .score { font-family: monospace; font-weight: 600; color: #a0a0d0; }
+  .question { color: #fff; margin-bottom: 10px; }
+  .answer, .preferred { color: #999; font-size: 0.9rem; margin-bottom: 8px; }
+  .preferred { background: #141420; border-radius: 6px; padding: 10px; border-left: 3px solid #7c6af7; }
+  .feedback { font-size: 0.85rem; padding: 8px 12px; border-radius: 6px; }
+  .feedback.good { background: rgba(34,197,94,0.1); color: #4ade80; border-left: 3px solid #22c55e; }
+  .feedback.warn { background: rgba(250,204,21,0.1); color: #facc15; border-left: 3px solid #eab308; }
+  .strengths-grid, .weaknesses-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .str-card, .weak-card { background: #1a1a1a; border-radius: 8px; padding: 14px; display: flex; gap: 10px; align-items: flex-start; }
+  .str-card { border-left: 3px solid #22c55e; }
+  .weak-card { border-left: 3px solid #ef4444; }
+  .print-btn { display: inline-flex; align-items: center; gap: 8px; background: #7c6af7; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 0.9rem; cursor: pointer; margin-top: 20px; }
+  @media print { body { background: #fff; color: #000; } .card { background: #f5f5f5; border-color: #ccc; } .print-btn { display: none; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Interview Report</h1>
+  <p class="meta">${candidateData?.name || 'Candidate'} &nbsp;·&nbsp; ${report.overall_summary.match(/\d+ minutes/)?.[0] || ''} &nbsp;·&nbsp; Generated ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+
+  <div class="summary-cards">
+    <div class="card big"><div class="val">${avgScore}</div><div class="lbl">Avg Score</div></div>
+    <div class="card"><div class="val">${report.qa_analysis.length}</div><div class="lbl">Questions</div></div>
+    <div class="card"><div class="val">${report.strengths.length}</div><div class="lbl">Strengths</div></div>
+    <div class="card"><div class="val">${report.weaknesses.length}</div><div class="lbl">Areas to Improve</div></div>
+  </div>
+
+  <div class="section">
+    <h2>Overall Summary</h2>
+    <p>${report.overall_summary}</p>
+  </div>
+
+  <div class="section">
+    <h2>Q&amp;A Analysis</h2>
+    <div class="qalist">${qaRows}</div>
+  </div>
+
+  <div class="section">
+    <h2>Strengths</h2>
+    <div class="strengths-grid">
+      ${report.strengths.map(s => `<div class="str-card"><span style="color:#22c55e">&#10003;</span><p>${s}</p></div>`).join('')}
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Areas to Improve</h2>
+    <div class="weaknesses-grid">
+      ${report.weaknesses.map(w => `<div class="weak-card"><span style="color:#ef4444">&#10007;</span><p>${w}</p></div>`).join('')}
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Recommended Focus Areas</h2>
+    <ul>
+      ${report.recommended_focus_areas.map(a => `<li>&#9679; ${a}</li>`).join('')}
+    </ul>
+  </div>
+
+  <button class="print-btn" onclick="window.print()">&#128439; Print / Save as PDF</button>
+</div>
+</body>
+</html>`;
+}
+
+function downloadReport(report, candidateData) {
+  const html = buildReportHTML(report, candidateData);
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `interview-report-${candidateData?.name?.replace(/\s+/g, '-').toLowerCase() || 'candidate'}-${Date.now()}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   REPORT SCREEN — Post-Interview Analysis
+   ═══════════════════════════════════════════════════════════ */
+
+function ReportScreen({ report, reportLoading, candidateData, onStartNew }) {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [expandedQA, setExpandedQA] = useState({});
+
+  const toggleQA = (idx) => {
+    setExpandedQA((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  if (reportLoading || !report) {
+    return (
+      <div className="report-loading">
+        <div className="report-loading__spinner" />
+        <h2>Generating your interview report...</h2>
+        <p className="type-body">Analyzing your responses and preparing feedback.</p>
+      </div>
+    );
+  }
+
+  const avgScore = report.qa_analysis.length > 0
+    ? (report.qa_analysis.reduce((sum, qa) => sum + qa.quality_score, 0) / report.qa_analysis.length).toFixed(1)
+    : 'N/A';
+
+  return (
+    <div className="report-screen">
+      {/* Header */}
+      <div className="report-header">
+        <div className="report-header__left">
+          <Bot size={28} style={{ color: 'var(--color-action-primary)' }} />
+          <div>
+            <h1 className="type-heading">Interview Report</h1>
+            <p className="type-body">
+              {candidateData?.name || 'Candidate'} — {report.overall_summary.match(/\d+ minutes/)?.[0] || ''}
+            </p>
+          </div>
+        </div>
+        <div className="report-header__actions">
+          <button className="btn btn-secondary" onClick={() => downloadReport(report, candidateData)}>
+            Download Report
+          </button>
+          <button className="btn btn-primary" onClick={onStartNew}>
+            Start New Interview
+          </button>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="report-summary-cards">
+        <div className="report-card report-card--score">
+          <div className="report-card__value">{avgScore}</div>
+          <div className="report-card__label">Avg Score</div>
+        </div>
+        <div className="report-card">
+          <div className="report-card__value">{report.qa_analysis.length}</div>
+          <div className="report-card__label">Questions</div>
+        </div>
+        <div className="report-card">
+          <div className="report-card__value">{report.strengths.length}</div>
+          <div className="report-card__label">Strengths</div>
+        </div>
+        <div className="report-card">
+          <div className="report-card__value">{report.weaknesses.length}</div>
+          <div className="report-card__label">Areas to Improve</div>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="report-tabs">
+        {['overview', 'q&a', 'strengths', 'weaknesses'].map((tab) => (
+          <button
+            key={tab}
+            className={`report-tab ${activeTab === tab ? 'report-tab--active' : ''}`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab === 'q&a' ? 'Q&A Analysis' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div className="report-content">
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="report-section">
+            <h3 className="type-subheading">Overall Summary</h3>
+            <p className="type-body" style={{ marginTop: 'var(--space-gap-sm)', color: 'var(--color-text-secondary)' }}>
+              {report.overall_summary}
+            </p>
+
+            <h3 className="type-subheading" style={{ marginTop: 'var(--space-gap-xl)' }}>Recommended Focus Areas</h3>
+            <ul className="report-list">
+              {report.recommended_focus_areas.map((area, i) => (
+                <li key={i}>
+                  <AlertCircle size={14} style={{ color: 'var(--color-text-accent)', flexShrink: 0 }} />
+                  {area}
+                </li>
+              ))}
+            </ul>
+
+            <h3 className="type-subheading" style={{ marginTop: 'var(--space-gap-xl)' }}>Strengths</h3>
+            <ul className="report-list">
+              {report.strengths.map((s, i) => (
+                <li key={i}>
+                  <CheckCircle2 size={14} style={{ color: 'var(--color-status-success)', flexShrink: 0 }} />
+                  {s}
+                </li>
+              ))}
+            </ul>
+
+            <h3 className="type-subheading" style={{ marginTop: 'var(--space-gap-xl)' }}>Areas to Improve</h3>
+            <ul className="report-list">
+              {report.weaknesses.map((w, i) => (
+                <li key={i}>
+                  <XCircle size={14} style={{ color: 'var(--color-status-error)', flexShrink: 0 }} />
+                  {w}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Q&A Tab */}
+        {activeTab === 'q&a' && (
+          <div className="report-qa-list">
+            {report.qa_analysis.map((qa, idx) => (
+              <div key={idx} className={`report-qa-card ${expandedQA[idx] ? 'report-qa-card--expanded' : ''}`}>
+                <div className="report-qa-card__header" onClick={() => toggleQA(idx)}>
+                  <div className="report-qa-card__meta">
+                    <span className="badge badge-info">{qa.topic}</span>
+                    <span className="report-qa-card__score">
+                      {qa.quality_score}/10
+                    </span>
+                  </div>
+                  <p className="report-qa-card__question">{qa.question}</p>
+                  <span className="report-qa-card__toggle">
+                    {expandedQA[idx] ? '▲ Collapse' : '▼ Expand'}
+                  </span>
+                </div>
+
+                {expandedQA[idx] && (
+                  <div className="report-qa-card__body">
+                    <div className="report-qa-card__section">
+                      <h4 className="type-label">Your Answer</h4>
+                      <p className="type-body" style={{ color: 'var(--color-text-secondary)' }}>
+                        {qa.candidate_answer || <em style={{ color: 'var(--color-text-disabled)' }}>No answer provided</em>}
+                      </p>
+                    </div>
+                    <div className="report-qa-card__section">
+                      <h4 className="type-label">Preferred Answer</h4>
+                      <p className="type-body" style={{ color: 'var(--color-text-secondary)' }}>
+                        {qa.preferred_answer}
+                      </p>
+                    </div>
+                    <div className="report-qa-card__section">
+                      <h4 className="type-label">Feedback</h4>
+                      <p className="type-body" style={{ color: qa.quality_score >= 7 ? 'var(--color-status-success)' : 'var(--color-text-accent)' }}>
+                        {qa.feedback}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Strengths Tab */}
+        {activeTab === 'strengths' && (
+          <div className="report-section">
+            <h3 className="type-subheading">Your Strengths</h3>
+            <div className="report-strengths-grid">
+              {report.strengths.map((s, i) => (
+                <div key={i} className="report-strength-card">
+                  <CheckCircle2 size={20} style={{ color: 'var(--color-status-success)' }} />
+                  <p className="type-body">{s}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Weaknesses Tab */}
+        {activeTab === 'weaknesses' && (
+          <div className="report-section">
+            <h3 className="type-subheading">Areas to Focus On</h3>
+            <div className="report-weaknesses-grid">
+              {report.weaknesses.map((w, i) => (
+                <div key={i} className="report-weakness-card">
+                  <XCircle size={20} style={{ color: 'var(--color-status-error)' }} />
+                  <p className="type-body">{w}</p>
+                </div>
+              ))}
+            </div>
+
+            <h3 className="type-subheading" style={{ marginTop: 'var(--space-gap-xl)' }}>Recommended Focus Areas</h3>
+            <p className="type-body" style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-gap-md)' }}>
+              Based on your interview performance, focus on improving in these areas:
+            </p>
+            <ul className="report-list">
+              {report.recommended_focus_areas.map((area, i) => (
+                <li key={i}>
+                  <AlertCircle size={14} style={{ color: 'var(--color-text-accent)', flexShrink: 0 }} />
+                  {area}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
    MAIN APP — Mode Controller
    ═══════════════════════════════════════════════════════════ */
 
 function App() {
-  // View mode: 'video' (full-screen call) or 'coding' (workspace)
-  const [mode, setMode] = useState('video');
+  // View mode: 'setup' (interview setup), 'video' (full-screen call), or 'coding' (workspace)
+  const [mode, setMode] = useState('setup');
+  // Pending mode switch — used for graceful video→coding transition
+  const [pendingMode, setPendingMode] = useState(null);
+
+  // Candidate data from interview setup
+  const [candidateData, setCandidateData] = useState(null);
 
   // Shared state
   const [videoOn, setVideoOn] = useState(true);
   const [micOn, setMicOn] = useState(true);
   const [screenShare, setScreenShare] = useState(false);
 
-  // AI Chat visibility
-  const [showAIChat, setShowAIChat] = useState(true);
+  // Agent Panel visibility
+  const [showAgentPanel, setShowAgentPanel] = useState(true);
+
+  // Agent Voice system
+  // Model can be switched via VITE_OLLAMA_MODEL for fast cloud models.
+  const agentVoice = useAgentVoice(import.meta.env.VITE_OLLAMA_MODEL || 'llama3');
 
   // Camera
   const camera = useCamera();
@@ -834,15 +1227,138 @@ function App() {
   // Timer
   const timer = useTimer();
 
-  // Start timer + camera on first render
-  useEffect(() => {
-    timer.start();
-    camera.startCamera();
-    return () => {
-      timer.stop();
-      camera.stopCamera();
-    };
+  // Report state
+  const [report, setReport] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+
+  // Interview ending state (for graceful close at 20 min)
+  const interviewEndingRef = useRef(false);
+
+  // Handle starting interview from setup
+  const handleStartInterview = (data) => {
+    setCandidateData(data);
+    timer.reset();
+    interviewEndingRef.current = false;
+    setReport(null);
+    setMode('video');
+  };
+
+  // Handle joining interview with code
+  const handleJoinWithCode = (data) => {
+    setCandidateData(data);
+    setMode('video');
+  };
+
+  // Graceful transition from video → coding: fade out and wait for agent to finish speaking
+  const transitionToCoding = useCallback(() => {
+    setPendingMode('coding');
   }, []);
+
+  // When pendingMode is set, wait for agent speech to finish then actually switch modes
+  useEffect(() => {
+    if (!pendingMode) return;
+
+    // If agent is not currently speaking, switch immediately
+    if (!agentVoice.isSpeaking) {
+      setMode(pendingMode);
+      setPendingMode(null);
+      return;
+    }
+
+    // Otherwise wait for the agent to finish, then switch
+    const timeout = setTimeout(() => {
+      setMode(pendingMode);
+      setPendingMode(null);
+    }, 2000); // max wait 2s even if still speaking
+
+    const checkInterval = setInterval(() => {
+      if (!agentVoice.isSpeaking) {
+        clearTimeout(timeout);
+        clearInterval(checkInterval);
+        setMode(pendingMode);
+        setPendingMode(null);
+      }
+    }, 200);
+
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(checkInterval);
+    };
+  }, [pendingMode, agentVoice.isSpeaking]);
+
+  // ── Interview auto-close at 20 min with graceful speech finish ──────────────────
+  useEffect(() => {
+    if (!timer.isTimeUp) return;
+    if (mode === 'setup' || mode === 'report') return;
+    if (interviewEndingRef.current) return;
+    interviewEndingRef.current = true;
+
+    // Agent is speaking → wait up to 5s for them to finish
+    const waitForAgent = () => {
+      const maxWait = setTimeout(() => {
+        closeAndGenerateReport();
+      }, 5000);
+
+      const check = setInterval(() => {
+        if (!agentVoice.isSpeaking) {
+          clearTimeout(maxWait);
+          clearInterval(check);
+          closeAndGenerateReport();
+        }
+      }, 300);
+
+      return () => {
+        clearTimeout(maxWait);
+        clearInterval(check);
+      };
+    };
+
+    const closeAndGenerateReport = async () => {
+      // Tell agents the interview is ending (they'll finish current thought)
+      const duration = timer.seconds;
+      timer.stop();
+
+      // End the voice session
+      if (agentVoice.isInterviewActive) {
+        await agentVoice.endInterview(duration);
+      }
+
+      // Generate report
+      if (agentVoice.sessionId) {
+        setReportLoading(true);
+        try {
+          const { generateReport } = await import('./services/interviewBackend');
+          const r = await generateReport(agentVoice.sessionId);
+          setReport(r);
+        } catch (e) {
+          console.error('Failed to generate report:', e);
+        } finally {
+          setReportLoading(false);
+        }
+      }
+
+      setMode('report');
+      interviewEndingRef.current = false;
+    };
+
+    if (agentVoice.isSpeaking) {
+      return waitForAgent();
+    } else {
+      closeAndGenerateReport();
+    }
+  }, [timer.isTimeUp, mode, agentVoice.isSpeaking, agentVoice.isInterviewActive, agentVoice.sessionId]);
+
+  // Start timer + camera when entering video mode
+  useEffect(() => {
+    if (mode === 'video' || mode === 'coding') {
+      timer.start();
+      camera.startCamera();
+      return () => {
+        timer.stop();
+        camera.stopCamera();
+      };
+    }
+  }, [mode]);
 
   // Sync video track enabled state
   useEffect(() => {
@@ -938,10 +1454,43 @@ function App() {
     }, 800);
   };
 
+  // Setup screen
+  if (mode === 'setup') {
+    return (
+      <div className="interview-setup-screen">
+        <div className="interview-setup-header">
+          <Code2 size={32} style={{ color: 'var(--color-action-primary)' }} />
+          <h1>AI Interview Platform</h1>
+          <p>Voice-based technical interviews with 3 AI agents</p>
+        </div>
+        <InterviewSetup
+          onStartInterview={handleStartInterview}
+          onJoinWithCode={handleJoinWithCode}
+        />
+      </div>
+    );
+  }
+
+  if (mode === 'report') {
+    return (
+      <ReportScreen
+        report={report}
+        reportLoading={reportLoading}
+        candidateData={candidateData}
+        onStartNew={() => {
+          setMode('setup');
+          setReport(null);
+          timer.reset();
+          interviewEndingRef.current = false;
+        }}
+      />
+    );
+  }
+
   if (mode === 'video') {
     return (
       <VideoCallScreen
-        onToggleCoding={() => setMode('coding')}
+        onToggleCoding={transitionToCoding}
         videoOn={videoOn}
         setVideoOn={setVideoOn}
         micOn={micOn}
@@ -950,6 +1499,11 @@ function App() {
         setScreenShare={setScreenShare}
         timer={timer}
         stream={camera.stream}
+        candidateData={candidateData}
+        agentVoice={agentVoice}
+        showAgentPanel={showAgentPanel}
+        setShowAgentPanel={setShowAgentPanel}
+        isPendingTransition={pendingMode !== null}
       />
     );
   }
@@ -976,8 +1530,10 @@ function App() {
       setMicOn={setMicOn}
       timer={timer}
       stream={camera.stream}
-      showAIChat={showAIChat}
-      setShowAIChat={setShowAIChat}
+      showAgentPanel={showAgentPanel}
+      setShowAgentPanel={setShowAgentPanel}
+      candidateData={candidateData}
+      agentVoice={agentVoice}
     />
   );
 }

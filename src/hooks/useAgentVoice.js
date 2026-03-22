@@ -5,6 +5,58 @@ import { chat } from '../services/ollama';
 import { createSession, appendTranscriptEntry, endSession } from '../services/interviewBackend';
 
 /**
+ * Select 3 distinctly different voices for the 3 interview agents.
+ * If 3+ voices available: picks the most different ones by comparing voice names.
+ * If fewer: distributes them and relies on rate/pitch differences to add distinction.
+ */
+function selectDistinctVoices(englishVoices) {
+  if (englishVoices.length === 0) {
+    return { peerVoice: null, teamLeadVoice: null, veteranVoice: null };
+  }
+
+  if (englishVoices.length >= 3) {
+    // Pick voices from different "categories" — prefer voices with different names/qualities
+    // Sort by name length as a simple heuristic for variety (shorter = often robotic/tts, longer = natural)
+    const sorted = [...englishVoices].sort((a, b) => a.name.length - b.name.length);
+
+    // Group voices by approximate "type" using name keywords
+    const naturalVoices = sorted.filter(v =>
+      /Zira|Samantha|Google|Microsoft|Alex|Echo|Natural/i.test(v.name)
+    );
+    const otherVoices = sorted.filter(v =>
+      !/Zira|Samantha|Google|Microsoft|Alex|Echo|Natural/i.test(v.name)
+    );
+
+    // Prefer natural-sounding voices for all three if available
+    const pool = naturalVoices.length >= 3 ? naturalVoices : sorted;
+
+    // Pick first, last, and middle for maximum variety
+    const peerVoice = pool[0];
+    const veteranVoice = pool[pool.length - 1];
+    const middleIdx = Math.floor(pool.length / 2);
+    const teamLeadVoice = pool[middleIdx];
+
+    return { peerVoice, teamLeadVoice, veteranVoice };
+  }
+
+  // 1 or 2 voices — distribute them; rate/pitch in voiceConfig will add distinction
+  if (englishVoices.length === 1) {
+    return {
+      peerVoice: englishVoices[0],
+      teamLeadVoice: englishVoices[0],
+      veteranVoice: englishVoices[0],
+    };
+  }
+
+  // 2 voices — peer gets first, teamLead gets second, veteran gets first (with different pitch)
+  return {
+    peerVoice: englishVoices[0],
+    teamLeadVoice: englishVoices[1],
+    veteranVoice: englishVoices[0],
+  };
+}
+
+/**
  * Hook for managing multi-agent voice interviews
  * Handles STT, TTS with distinct voices, and agent coordination
  */
@@ -60,23 +112,16 @@ export function useAgentVoice(model = 'llama3') {
       const loadVoices = () => {
         const availableVoices = speechSynthesis.getVoices();
         setVoices(availableVoices);
-        
-        // Assign distinct voices to agents
+
+        // Select 3 distinctly different voices for the 3 agents
         const englishVoices = availableVoices.filter(v => v.lang.startsWith('en'));
-        if (englishVoices.length >= 3) {
-          agentVoicesRef.current = {
-            peer: englishVoices[0],
-            teamLead: englishVoices[1] || englishVoices[0],
-            veteran: englishVoices[2] || englishVoices[0]
-          };
-        } else if (englishVoices.length > 0) {
-          // Use same voice with different configs
-          agentVoicesRef.current = {
-            peer: englishVoices[0],
-            teamLead: englishVoices[0],
-            veteran: englishVoices[0]
-          };
-        }
+        const { peerVoice, teamLeadVoice, veteranVoice } = selectDistinctVoices(englishVoices);
+
+        agentVoicesRef.current = {
+          peer: peerVoice,
+          teamLead: teamLeadVoice,
+          veteran: veteranVoice,
+        };
       };
 
       loadVoices();
@@ -87,7 +132,9 @@ export function useAgentVoice(model = 'llama3') {
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
-      speechSynthesis?.cancel();
+      if ('speechSynthesis' in window) {
+        speechSynthesis.cancel();
+      }
     };
   }, []);
 
@@ -478,6 +525,48 @@ export function useAgentVoice(model = 'llama3') {
   }, [initRecognition, setAgentStatus]);
 
   /**
+   * Pause the interview - stops continuous recognition but keeps interview session active.
+   * Does NOT cancel ongoing speech — caller should wait for isSpeaking to become false first.
+   * Use when switching to a mode where another voice system (e.g., VoiceControls) takes over.
+   */
+  const pauseInterview = useCallback(() => {
+    // Stop speech recognition
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        // Ignore if already stopped
+      }
+    }
+    isListeningRef.current = false;
+    setIsListening(false);
+    // NOTE: Do NOT cancel speechSynthesis here — let the agent finish speaking naturally.
+    // The caller should wait for isSpeaking to become false before calling this.
+    agentSpeakingRef.current = false;
+    // Keep isInterviewActiveRef and session alive so agents can still respond via sendToActiveAgent
+  }, []);
+
+  /**
+   * Resume the interview - restarts continuous recognition after a pause.
+   */
+  const resumeInterview = useCallback(() => {
+    if (recognitionRef.current && !isProcessingRef.current) {
+      try {
+        recognitionRef.current.start();
+        isListeningRef.current = true;
+        setIsListening(true);
+        Object.keys(AGENTS).forEach(id => {
+          setAgentStatus(id, AGENT_STATUS.LISTENING);
+        });
+      } catch (e) {
+        if (!String(e?.message || '').includes('already started')) {
+          console.error('Failed to resume listening:', e);
+        }
+      }
+    }
+  }, [setAgentStatus]);
+
+  /**
    * Stop listening and process response
    */
   const stopListening = useCallback(async () => {
@@ -486,35 +575,35 @@ export function useAgentVoice(model = 'llama3') {
     }
     isListeningRef.current = false;
     setIsListening(false);
-    
+
     const transcript = currentTranscript.trim();
     if (!transcript) return;
-    
+
     // Reset agent statuses
     Object.keys(AGENTS).forEach(id => {
       setAgentStatus(id, AGENT_STATUS.IDLE);
     });
-    
+
     // Pick random agent to respond (or based on context)
     const agentIds = Object.keys(AGENTS);
     const respondingAgent = agentIds[Math.floor(Math.random() * agentIds.length)];
-    
+
     // Get and speak response
     const response = await getAgentResponse(respondingAgent, transcript);
     await speakAsAgent(respondingAgent, response);
-    
+
     // Clear transcript
     setCurrentTranscript('');
-    
+
     // Maybe trigger follow-up from another agent (30% chance)
     if (Math.random() < 0.3) {
       const otherAgents = agentIds.filter(id => id !== respondingAgent);
       const followUpAgent = otherAgents[Math.floor(Math.random() * otherAgents.length)];
-      
+
       const followUp = await getAgentResponse(followUpAgent, `Follow up on what the candidate just said: "${transcript}"`);
       await speakAsAgent(followUpAgent, followUp);
     }
-    
+
   }, [currentTranscript, getAgentResponse, setAgentStatus, speakAsAgent]);
 
   /**
@@ -574,7 +663,9 @@ export function useAgentVoice(model = 'llama3') {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
-    speechSynthesis?.cancel();
+    if ('speechSynthesis' in window) {
+      speechSynthesis.cancel();
+    }
 
     // End backend session
     if (sessionIdRef.current) {
@@ -641,6 +732,8 @@ export function useAgentVoice(model = 'llama3') {
     // Actions
     startInterview,
     endInterview,
+    pauseInterview,
+    resumeInterview,
     startListening,
     stopListening,
     triggerAgent,

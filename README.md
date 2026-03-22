@@ -1,361 +1,308 @@
-# 🛡️ Cluely Killer - Secure Interview Platform
+# AI Interview Platform
 
-<div align="center">
-
-![Tauri](https://img.shields.io/badge/Tauri-2.10-24C8D8?style=for-the-badge&logo=tauri&logoColor=white)
-![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)
-![Rust](https://img.shields.io/badge/Rust-Backend-DEA584?style=for-the-badge&logo=rust&logoColor=black)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-
-**A secure technical interview platform immune to cheating software**
-
-[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Technology Stack](#-technology-stack) • [Contributing](#-contributing)
-
-</div>
+A desktop application for conducting voice-based technical interviews with 3 AI agents, live coding challenges, video conferencing, and post-interview reporting. Built with Tauri 2, React 19, and Ollama.
 
 ---
 
-## 🚀 Overview
+## Table of Contents
 
-**Cluely Killer** is a secure technical interview platform built with **Tauri 2** and **React 19** designed to conduct fair, cheat-proof coding interviews. The platform provides a comprehensive interview environment with built-in proctoring mechanisms that are **immune to cheating software** like Cluely, ChatGPT wrappers, and other AI-powered interview assistance tools.
-
-### 🎯 The Main Feature: Cheating-Immune Interview Environment
-
-This platform is specifically engineered to prevent candidates from using cheating tools during interviews:
-
-- **🔒 Screen Recording Protection** - The proctoring overlay uses system-level window APIs that prevent cheating apps from capturing interview questions and content through screen recording
-- **🪟 Locked Environment** - Candidates cannot switch windows, alt-tab, or access external resources during the interview session
-- **👻 Invisible to Cheating Apps** - The platform's architecture makes it impossible for AI cheating tools to detect, capture, or interact with interview content
-- **🎯 Always-On-Top Proctoring** - A secure overlay maintains constant visibility, preventing candidates from navigating away
-- **🚫 No Window Decorations** - Frameless, fullscreen mode prevents standard window manipulation techniques used by cheating software
-
-> **Why This Matters:** AI-powered cheating tools like Cluely work by capturing screen content and providing real-time answers. Our platform blocks these tools at the system level, ensuring that interview content remains invisible to screen capture and AI assistance cannot access the questions or code.
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Project Structure](#project-structure)
+- [Key Systems](#key-systems)
 
 ---
 
-## ✨ Features
+## Features
 
-### 🤖 AI Voice Interview System (NEW!)
-- **3 Distinct AI Agents** conducting the interview:
-  - **Peer** (Alex Chen) - Friendly junior developer asking about fundamentals
-  - **Team Lead** (Sarah Mitchell) - Professional tech lead evaluating architecture
-  - **Veteran** (James Rodriguez) - Senior principal engineer diving deep
-- **Voice-to-Voice** interaction using Web Speech API
-- **Smart Resume Parsing** - Automatically extracts skills, projects, and experience
-- **Project-Based Questions** - Focus on real work, NO DSA/LeetCode
-- **Interview Code System** - Generate unique codes for session management
+### 3 AI Interview Agents
 
-### 📹 Video Call Interface
-- Real-time camera preview with picture-in-picture mode
-- Microphone and camera toggle controls
-- Screen sharing capabilities for interviewers
-- Professional dark-themed UI optimized for extended sessions
+Three distinct AI personas conduct the interview simultaneously, each with their own voice and questioning style:
 
-### 💻 Secure Coding Workspace
-- **Monaco Editor Integration** - The same editor powering VS Code
-- **Multi-Language Support**:
-  - JavaScript/TypeScript
-  - Python
-  - Java
-  - C++
-  - Go
-  - Rust
-- Syntax highlighting and IntelliSense
-- Secure code execution environment
-- No copy-paste from external sources
+| Agent | Name | Role | Voice | Focus |
+|-------|------|------|-------|-------|
+| Peer | Alex Chen | Junior Developer | Fast, higher pitch (friendly) | Fundamentals, communication, day-to-day dev work |
+| Team Lead | Sarah Mitchell | Tech Lead | Medium pace (professional) | Architecture decisions, trade-offs, team collaboration |
+| Veteran | James Rodriguez | Principal Engineer | Slow, deeper (authoritative) | Edge cases, production experience, deep technical |
 
-### 📝 Interview Question Bank
-- Pre-loaded coding challenges with difficulty ratings (Easy/Medium/Hard)
-- Problem descriptions with examples
-- Automated test case validation
-- Pass/fail results with detailed feedback
+All three agents share conversation history to avoid repeating questions. A random agent responds to the candidate, with a 30% chance of a follow-up from a different agent.
 
-### 🔒 Proctoring & Security System
+### Voice Interview System
+
+- **Speech Recognition**: Web Speech API with continuous mode, interim results, and grammar hints for technical terms
+- **Voice Activity Detection**: User speaking interrupts the agent mid-sentence automatically
+- **Silence Detection**: 1.5 seconds of silence after the user starts speaking triggers AI response processing
+- **Distinct TTS Voices**: Each agent uses a different OS voice with adjusted rate/pitch for maximum distinguishability
+- **Session Logging**: All transcript entries (candidate and agents) are logged with timestamps to the Tauri backend
+
+### Resume & Project Parsing
+
+Upload a PDF or paste resume text. The platform automatically extracts:
+- Skills across 6 categories (languages, frontend, backend, database, devops, tools)
+- Up to 5 projects with name, description, and detected technologies
+- Experience level (junior/mid/senior) and years of experience
+
+This context is injected into the AI agents' prompts so they ask relevant, personalized questions.
+
+### No DSA / LeetCode Questions
+
+All questions are **project-based and experience-focused**:
+- Project-deep-dive questions (based on candidate's actual projects)
+- Skill-based questions (React, Node.js, Python, PostgreSQL, Docker, AWS, TypeScript)
+- Architecture questions (for mid/senior candidates)
+- Problem-solving and teamwork questions
+
+### Coding Workspace
+
+- **Monaco Editor** (VS Code's editor) with syntax highlighting for 7 languages: JavaScript, TypeScript, Python, Java, C++, Go, Rust
+- **Resizable panels**: drag to resize the questions sidebar and output panel
+- **Code execution**: JavaScript runs in a sandboxed environment with console output capture
+- **Test runner**: Predefined test cases run against the user's code with pass/fail results
+- **AI code review**: Ollama-powered feedback on correctness, efficiency, and code quality
+
+### Video Call Mode
+
+- Live camera feed with toggle controls for video and microphone
+- Screen sharing capability
+- Draggable picture-in-picture self-view
+- 20-minute countdown timer with last-minute warning banner
+- Graceful transition to coding mode (waits for agent to finish speaking before switching)
+
+### Interview Report
+
+After the session ends, a comprehensive report is generated:
+- Summary cards: average score, questions asked, strengths, areas to improve
+- Per-question analysis: question, candidate answer, preferred answer, feedback, quality score (1-10)
+- Downloadable as a self-contained HTML file with print styles
+
+### Proctor / Lockdown Mode
+
+Activated by the Rust backend on startup:
+- Window opens maximized with no decorations, always-on-top
+- On Windows: `SetWindowDisplayAffinity` with `WDA_EXCLUDEFROMCAPTURE` hides the window from screen recordings
+- On macOS: panel-level window for the same effect
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 19.1 + Vite 7 |
+| Desktop | Tauri 2 (Rust backend) |
+| Code Editor | Monaco Editor (`@monaco-editor/react`) |
+| AI / LLM | Ollama (local or cloud) via REST API |
+| Speech | Web Speech API + Web Speech Synthesis API (browser-native) |
+| PDF Parsing | pdfjs-dist |
+| Icons | lucide-react |
+| Fonts | JetBrains Mono (editor), system sans-serif (UI) |
+
+---
+
+## Architecture
+
+The app has **4 modes** controlled from a single root component:
+
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                  Interview Locked • Press ESC               │
-├─────────────────────────────────────────────────────────────┤
-│                                            ┌──────────────┐ │
-│                                            │  Questions   │ │
-│         [Secure Interview Environment]     │   Panel      │ │
-│              (Protected Mode)              │              │ │
-│                                            │  Q1. Event   │ │
-│     The overlay protects interview         │  Loop in JS  │ │
-│     content from screen capture            │              │ │
-│     and cheating software                  │  Q2. React   │ │
-│                                            │  Lifecycle   │ │
-│                                            │              │ │
-│                                            │  Q3. XSS/    │ │
-│                                            │  CSRF        │ │
-│                                            └──────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### ⚡ Code Execution Engine
-- Real-time JavaScript execution in a sandboxed environment
-- Console output capture and display
-- Performance timing metrics
-- Test case runner with result visualization
-
----
-
-## 🛡️ How It Prevents Cheating
-
-### Blocking Common Cheating Methods
-
-| Cheating Method | How This Platform Blocks It |
-|----------------|----------------------------|
-| **Screen Capture by AI Tools** | Panel API makes overlay invisible to screen recording, so cheating apps can't see questions |
-| **Window Switching** | Always-on-top fullscreen mode prevents access to other applications |
-| **Clipboard Manipulation** | Secure clipboard handling prevents copy-paste from external sources |
-| **Process Injection** | Tauri's Rust backend provides system-level protection |
-| **Browser Extensions** | Native desktop app, not browser-based - extensions can't interact |
-| **AI Answer Generators** | Questions are hidden from screen capture, so AI tools receive no input |
-
-### Technical Implementation
-
-The anti-cheating protection is achieved through:
-
-1. **Tauri's Native Window API** - System-level window control that bypasses browser limitations
-2. **macOS Panel Conversion** - Special window type invisible to screen recording APIs
-3. **Fullscreen Lock Mode** - Prevents window switching and application cycling
-4. **Custom Event Handling** - Intercepts and blocks prohibited keyboard shortcuts
-5. **Decoration-Free Windows** - No standard window controls to manipulate
-
-```javascript
-// From Overlay.jsx - Security configuration
-useEffect(() => {
-  const lockScreen = async () => {
-    await tauriWindow.setAlwaysOnTop(true);      // Prevent window switching
-    await tauriWindow.setFullscreen(false);      // Controlled fullscreen
-    await tauriWindow.maximize();                // Maximum coverage
-    await tauriWindow.setDecorations(false);     // No window controls
-    
-    // Invisible to screen recording (blocks AI cheating tools)
-    if (typeof tauriWindow.toPanel === "function") {
-      tauriWindow.toPanel();
-    }
-  };
-  lockScreen();
-}, []);
+setup → video → coding → report
 ```
 
+| Mode | Description |
+|------|-------------|
+| `setup` | Landing screen: enter name, upload resume, generate/join interview code |
+| `video` | Full-screen video view with 3 AI agents asking questions via voice |
+| `coding` | Monaco editor workspace with questions sidebar, output panel, and agent panel |
+| `report` | Post-interview analysis with scores, Q&A breakdown, and downloadable HTML |
+
+### Voice System
+
+Two independent speech systems exist in the codebase:
+
+1. **`useAgentVoice`** (core interview engine): Handles the continuous voice interview — agents speak and listen continuously. Starts when "Start Interview" is clicked in video mode. Pauses when switching to coding mode to free the microphone for other uses.
+
+2. **`useVoice`** (general-purpose): A lightweight STT/TTS hook. Currently returns `null` in the UI since voice controls were removed — the interview is fully voice-driven.
+
+### Backend
+
+Tauri (Rust) backend manages:
+- Session file creation and transcript appending
+- Report generation from completed sessions
+- Window-level proctoring (screen capture exclusion)
+
+When running outside Tauri (pure Vite dev), all backend calls fall back to `localStorage`.
+
 ---
 
-## 🏗️ Technology Stack
-
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| **Frontend** | React 19 | UI components and state management |
-| **Desktop Framework** | Tauri 2 | Native desktop wrapper with Rust backend |
-| **Code Editor** | Monaco Editor | Professional code editing experience |
-| **Icons** | Lucide React | Beautiful, consistent iconography |
-| **Build Tool** | Vite 7 | Fast development and optimized builds |
-| **Styling** | CSS Custom Properties | Design tokens and theming |
-| **Backend** | Rust | System-level security and window management |
-
----
-
-## 📦 Installation
+## Getting Started
 
 ### Prerequisites
 
-- **Node.js** >= 20.19.0 or >= 22.12.0
-- **pnpm** (recommended) or npm
-- **Rust** (latest stable)
-- **System Dependencies** for Tauri:
-  - **macOS**: Xcode Command Line Tools
-  - **Windows**: Microsoft Visual Studio C++ Build Tools
-  - **Linux**: `webkit2gtk`, `openssl`, and related development packages
+- **Node.js** 18+ with **pnpm** (or npm)
+- **Rust** 1.70+
+- **Ollama** running locally (or a cloud Ollama endpoint)
 
-### Quick Start
+### Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/hiwarkhedeprasad/cluely-killer-interview-platform.git
-cd cluely-killer-interview-platform
-
 # Install dependencies
 pnpm install
 
-# Install and start Ollama (for AI agents)
-# Download from https://ollama.ai
+# Start Ollama (if local)
 ollama serve
 ollama pull llama3
+# Or use any Ollama-compatible endpoint via .env.local
+```
 
-# Start development server
+### Development
+
+```bash
+# Run the full Tauri dev environment (Vite + Tauri)
 pnpm tauri dev
 ```
 
-### Use fast cloud Ollama endpoint
+### Production Build
 
-This app supports any Ollama-compatible cloud endpoint (for faster responses) via Vite env vars.
+```bash
+pnpm tauri build
+```
+
+Outputs:
+- **Windows**: `src-tauri/target/release/bundle/msi/`
+- **macOS**: `src-tauri/target/release/bundle/dmg/`
+- **Linux**: `src-tauri/target/release/bundle/deb/`
+
+---
+
+## Environment Variables
 
 Create a `.env.local` file in the project root:
 
-```bash
-VITE_OLLAMA_BASE_URL=https://your-ollama-cloud-endpoint
-VITE_OLLAMA_API_KEY=your_api_key_if_required
-VITE_OLLAMA_MODEL=llama3.1:8b
-```
+```env
+# Ollama connection (defaults to localhost:11434 if not set)
+VITE_OLLAMA_BASE_URL=http://localhost:11434
 
-If these vars are not set, it defaults to local Ollama at `http://localhost:11434` with model `llama3`.
+# Optional: API key for cloud Ollama endpoints
+VITE_OLLAMA_API_KEY=
 
-### Build for Production
-
-```bash
-# Build the application
-pnpm tauri build
-
-# The compiled application will be in:
-# macOS: src-tauri/target/release/bundle/dmg/
-# Windows: src-tauri/target/release/bundle/msi/
-# Linux: src-tauri/target/release/bundle/deb/
+# Model name (defaults to llama3 if not set)
+VITE_OLLAMA_MODEL=llama3
 ```
 
 ---
 
-## 🎮 Usage
-
-### For Interviewers
-
-1. Launch the application via `pnpm tauri dev` or the compiled binary
-2. The interview dashboard appears with video call interface
-3. Use the control bar to manage camera/microphone settings
-4. Switch to coding workspace by clicking the code icon
-5. Select questions from the panel for the candidate
-6. Monitor the candidate's code in real-time
-
-### Interview Security Mode
-
-When the interview begins, the secure overlay activates:
-
-- **Screen Lock**: Candidate's screen is locked to the interview application
-- **Proctoring Overlay**: Questions displayed in protected panel
-- **No Escape**: Window decorations removed, always-on-top enforced
-- **Screen Recording Immune**: AI cheating tools cannot capture content
-
-Press **ESC** to exit the secure mode (interviewer controlled).
-
----
-
-## 📁 Project Structure
+## Project Structure
 
 ```
-cluely-killer-interview-platform/
-├── src/                      # React application source
-│   ├── App.jsx              # Main application component
-│   ├── App.css              # Application-specific styles
-│   ├── main.jsx             # React entry point
+INTERVIEW/
+├── index.html              # Entry HTML
+├── package.json            # Frontend dependencies and scripts
+├── vite.config.js          # Vite + Tauri configuration
+│
+├── src/
+│   ├── main.jsx            # React entry point
+│   ├── App.jsx             # Root component: mode controller, all screens
+│   ├── App.css             # Global styles
+│   │
 │   ├── components/
-│   │   └── Overlay.jsx      # Secure proctoring overlay
+│   │   ├── AgentPanel.jsx       # 3-agent panel with status indicators
+│   │   ├── AIChat.jsx           # Chat UI backed by useOllama hook
+│   │   ├── InterviewSetup.jsx    # Setup/join screen with resume upload
+│   │   ├── VoiceControls.jsx    # Returns null (voice handled automatically)
+│   │   └── Overlay.jsx          # Proctor/lockdown overlay
+│   │
+│   ├── hooks/
+│   │   ├── useAgentVoice.js     # Core voice interview engine (STT + TTS + multi-agent)
+│   │   ├── useOllama.js         # Ollama chat session management
+│   │   ├── useVoice.js          # General-purpose STT/TTS hook
+│   │   ├── useInterviewFlow.js  # Interview phase state machine
+│   │   └── useResize.js         # Resizable panel dimensions
+│   │
+│   ├── services/
+│   │   ├── ollama.js            # Ollama API client (chat, streaming, code review)
+│   │   ├── agents.js            # 3 agent personas + system prompts + introductions
+│   │   ├── codeRunner.js        # JS execution engine + test runner
+│   │   ├── interviewBackend.js  # Tauri command wrapper (localStorage fallback)
+│   │   ├── resumeParser.js       # Resume text extraction (skills, projects, experience)
+│   │   └── questionGenerator.js  # Project-based question bank (NOT DSA)
+│   │
 │   └── styles/
-│       ├── tokens.css       # Design tokens (colors, spacing)
-│       ├── base.css         # Reset and global styles
-│       ├── components.css   # Component primitives
-│       ├── layout.css       # Layout utilities
-│       └── typography.css   # Type scale and fonts
-├── src-tauri/               # Tauri/Rust backend
-│   ├── src/
-│   │   ├── main.rs          # Rust entry point
-│   │   └── lib.rs           # Core Rust library
-│   ├── Cargo.toml           # Rust dependencies
-│   ├── tauri.conf.json      # Tauri configuration
-│   ├── build.rs             # Build script
-│   └── capabilities/
-│       └── default.json     # Window capabilities
-├── index.html               # HTML entry point
-├── package.json             # Node.js dependencies
-├── vite.config.js           # Vite configuration
-└── pnpm-lock.yaml          # Dependency lock file
+│       ├── tokens.css     # Design tokens (CSS variables)
+│       ├── typography.css
+│       ├── base.css       # Reset + globals
+│       ├── components.css
+│       └── layout.css     # Workspace layout + resize handles
+│
+└── src-tauri/
+    ├── Cargo.toml          # Rust dependencies
+    ├── tauri.conf.json     # Tauri app config
+    ├── build.rs           # Build script
+    ├── capabilities/
+    │   └── default.json   # Window permissions (always-on-top, no decorations)
+    ├── icons/
+    └── src/
+        ├── main.rs       # Window creation + all Tauri commands
+        └── lib.rs        # Re-export for mobile support
 ```
 
 ---
 
-## 🔧 Configuration
+## Key Systems
 
-### Tauri Configuration (`tauri.conf.json`)
+### How the Interview Flow Works
 
-Security-focused window settings:
+1. **Setup**: Candidate enters name, uploads resume (PDF or text), adds projects
+2. **Video Mode**: 20-minute countdown starts. "Start Interview" triggers `useAgentVoice.startInterview()` — Alex (peer agent) introduces first, then continuous speech recognition begins
+3. **Agent Response Loop**: User speaks → 1.5s silence → transcript sent to Ollama → agent responds → TTS speaks → repeat
+4. **Mode Switch**: Clicking "Start Coding" waits for current agent speech to finish, then pauses voice recognition and switches mode
+5. **Coding**: Candidate writes code in Monaco Editor, can run and get test results, AI code review available
+6. **Report**: After 20 minutes (or manual end), transcript is analyzed and a report is generated with scores and feedback
 
-```json
-{
-  "app": {
-    "windows": [
-      {
-        "title": "Interview Platform",
-        "visible": true,
-        "decorations": false,
-        "transparent": true,
-        "alwaysOnTop": true
-      }
-    ]
-  }
-}
+### Code Execution
+
+JavaScript code is executed locally in the browser using a sandboxed `new Function()` wrapper that captures `console.log`, `console.error`, and `console.warn` output. Other languages (Python, Go, Rust, etc.) show simulated output since true cross-language execution requires a backend execution service.
+
+### Session Persistence
+
+Sessions are keyed by a 6-character alphanumeric interview code stored in `localStorage`. This enables the "join by code" flow without authentication. Reports are stored in `%APPDATA%/com.phiwa.interview/reports/` when running in Tauri.
+
+---
+
+## Screenshots / UI Layout
+
+### Video Mode
+```
+┌─────────────────────────────────────────────────────────┐
+│ Interview                            Live  19:45  [Bot] [⛶]│
+├───────────────────────────────────┬─────────────────────┤
+│                                   │  Interview Panel     │
+│                                   │  ┌────────────────┐ │
+│         Candidate Camera          │  │ Alex  ● Listen │ │
+│         + Name Label              │  │ Sarah ○ Idle   │ │
+│                                   │  │ James ○ Idle   │ │
+│                                   │  └────────────────┘ │
+│                                   │  [Start Interview]   │
+├───────────────────────────────────┴─────────────────────┤
+│  [🎤] [📹] [🖥️]  │ [Start Coding]  │  [End]            │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### Design Tokens (`tokens.css`)
-
-The application uses a comprehensive design token system:
-
-- **Colors**: Primary, secondary, accent, status colors
-- **Typography**: Font families, sizes, weights, line heights
-- **Spacing**: Consistent gap and padding scales
-- **Effects**: Shadows, blurs, transitions
-
----
-
-## 🆚 Comparison with Other Platforms
-
-| Feature | Cluely Killer | HackerRank | CodeSignal | LeetCode |
-|---------|--------------|------------|------------|----------|
-| **AI Cheating Immunity** | ✅ System-level | ⚠️ Browser-level | ⚠️ Browser-level | ❌ None |
-| **Screen Capture Protection** | ✅ Native API | ❌ None | ⚠️ Limited | ❌ None |
-| **Window Lock** | ✅ Full lock | ⚠️ Warning only | ⚠️ Warning only | ❌ None |
-| **Native Desktop App** | ✅ Yes | ❌ Browser | ❌ Browser | ❌ Browser |
-| **Real-time Proctoring** | ✅ Built-in | ⚠️ Add-on | ⚠️ Add-on | ❌ None |
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Development Guidelines
-
-- Follow the existing code style
-- Write meaningful commit messages
-- Update documentation for new features
-- Test on multiple platforms before submitting
-- Ensure security features remain effective
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- [Tauri](https://tauri.app/) - For the incredible native desktop framework with security capabilities
-- [Monaco Editor](https://microsoft.github.io/monaco-editor/) - For the professional code editing experience
-- [Lucide](https://lucide.dev/) - For the beautiful icon set
-- [React Team](https://react.dev/) - For the amazing frontend framework
-
----
-
-<div align="center">
-
-**⭐ If this project helped you conduct fair interviews, consider giving it a star! ⭐**
-
-Made with ❤️ by [hiwarkhedeprasad](https://github.com/hiwarkhedeprasad)
-
-</div>
+### Coding Mode (resizable panels)
+```
+┌─────────────────────────────────────────────────────────┐
+│ AI Interview  │ JavaScript │ Live │ 19:12 │ [Bot] [⛶] │
+├──────────┬───────────────────────────┬──────────────────┤
+│ Problems │                           │                  │
+│ ┌──────┐ │  Monaco Editor            │  Agent Panel     │
+│ │ Q1 ● │ │  function twoSum(...)     │  Alex ● Speaking │
+│ │ Q2   │ │                           │  Sarah ○ Idle    │
+│ │ Q3   │ ├───────────────────────────┤  James ○ Idle    │
+│ └──────┘ │  [Output] [Test Results]  │                  │
+├──────────┤  > Run your code...       │                  │
+│ Q1 Title │                           │                  │
+│ Desc...  │                           │                  │
+└──────────┴───────────────────────────┴──────────────────┘
+```
+*(Drag the vertical bar to resize the sidebar, drag the horizontal bar to resize the output panel)*

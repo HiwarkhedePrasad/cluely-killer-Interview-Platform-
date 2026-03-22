@@ -1662,3 +1662,9 @@
 .timer-warning {
   animation: timerPulse 1s ease-in-out infinite;
 }
+
+
+
+.text-black{
+  color: black;
+}

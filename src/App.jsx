@@ -10,8 +10,8 @@ import {
 import './App.css';
 import { AgentPanel } from './components/AgentPanel';
 import { InterviewSetup } from './components/InterviewSetup';
-import { VoiceControls } from './components/VoiceControls';
 import { useAgentVoice } from './hooks/useAgentVoice';
+import { useWorkspaceResize } from './hooks/useResize';
 
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS
@@ -567,29 +567,17 @@ function CodingWorkspace({
   timer, stream,
   showAgentPanel, setShowAgentPanel,
   candidateData,
-  agentVoice
+  agentVoice,
+  sidebarWidth,
+  sidebarOnMouseDown,
+  bottomHeight,
+  bottomOnMouseDown,
 }) {
   const editorRef = useRef(null);
-  const speakResponseRef = useRef(null);
 
   const handleEditorMount = (editor) => {
     editorRef.current = editor;
     editor.focus();
-  };
-
-  // Get current question text for AI context
-  const currentQuestionText = questions[activeQuestion]?.title + ': ' + questions[activeQuestion]?.description;
-
-  // Handle voice transcript - send to active agent
-  const handleVoiceTranscript = async (transcript) => {
-    if (agentVoice && transcript.trim()) {
-      await agentVoice.sendToActiveAgent(transcript);
-    }
-  };
-
-  // Store speak function reference for TTS
-  const handleSpeakResponse = (speakFn) => {
-    speakResponseRef.current = speakFn;
   };
 
   return (
@@ -613,14 +601,7 @@ function CodingWorkspace({
           <Clock size={14} style={{ color: 'var(--color-text-tertiary)' }} />
           <span className="type-mono" style={{ color: 'var(--color-text-secondary)' }}>{timer.format()}</span>
           <span className="divider--vertical" style={{ height: '20px' }} />
-          
-          {/* Voice Controls */}
-          <VoiceControls 
-            onTranscript={handleVoiceTranscript}
-            onSpeakResponse={handleSpeakResponse}
-          />
-          
-          <span className="divider--vertical" style={{ height: '20px' }} />
+
           <button className="btn-icon" onClick={() => setMicOn(!micOn)} title={micOn ? 'Mute' : 'Unmute'}
             style={!micOn ? { color: 'var(--color-status-error)' } : {}}>
             {micOn ? <Mic size={16} /> : <MicOff size={16} />}
@@ -630,26 +611,30 @@ function CodingWorkspace({
             {videoOn ? <Video size={16} /> : <VideoOff size={16} />}
           </button>
           <span className="divider--vertical" style={{ height: '20px' }} />
-          
+
           {/* Agent Panel Toggle */}
-          <button 
-            className={`btn-icon ${showAgentPanel ? 'btn-icon--active' : ''}`} 
-            onClick={() => setShowAgentPanel(!showAgentPanel)} 
+          <button
+            className={`btn-icon ${showAgentPanel ? 'btn-icon--active' : ''}`}
+            onClick={() => setShowAgentPanel(!showAgentPanel)}
             title={showAgentPanel ? 'Hide Agents' : 'Show Agents'}
             style={showAgentPanel ? { color: 'var(--color-text-primary)', background: 'var(--color-primary-alpha)' } : {}}
           >
             {showAgentPanel ? <PanelRightClose size={16} /> : <Bot size={16} />}
           </button>
-          
+
           <button className="btn-icon" onClick={onBackToVideo} title="Back to video view">
             <Maximize2 size={16} />
           </button>
         </div>
       </div>
 
-      <div className="workspace" style={{ display: 'grid', gridTemplateColumns: showAgentPanel ? '280px 1fr 320px' : '280px 1fr', gap: 'var(--space-md)' }}>
-        {/* Sidebar — Questions */}
-        <div className="workspace-sidebar no-select">
+      {/* Workspace */}
+      <div className="workspace">
+        {/* Sidebar — Questions (resizable) */}
+        <div
+          className="workspace-sidebar no-select"
+          style={{ width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
+        >
           <div className="questions-list">
             <div className="panel-header" style={{ border: 'none', padding: '0 0 var(--space-gap-sm) 0' }}>
               <span className="type-label">Problems</span>
@@ -704,8 +689,14 @@ function CodingWorkspace({
           </div>
         </div>
 
+        {/* Vertical resize handle (sidebar ↔ editor) */}
+        <div
+          className="resize-handle resize-handle--vertical"
+          onMouseDown={sidebarOnMouseDown}
+        />
+
         {/* Main — Editor + Output */}
-        <div className="workspace-main">
+        <div className="workspace-main" style={{ flex: 1 }}>
           {/* Editor Toolbar */}
           <div className="editor-toolbar">
             <div className="editor-toolbar__group">
@@ -720,7 +711,7 @@ function CodingWorkspace({
               </select>
             </div>
             <div className="editor-toolbar__group">
-              <button className="btn btn-primary btn-sm" onClick={onRun} disabled={isRunning}>
+              <button className="btn btn-primary text-black btn-sm" onClick={onRun} disabled={isRunning}>
                 {isRunning ? (
                   <>
                     <span className="spinner" />
@@ -764,8 +755,14 @@ function CodingWorkspace({
             />
           </div>
 
-          {/* Output Panel */}
-          <div className="workspace-bottom">
+          {/* Horizontal resize handle (editor ↔ bottom) */}
+          <div
+            className="resize-handle"
+            onMouseDown={bottomOnMouseDown}
+          />
+
+          {/* Output Panel (resizable) */}
+          <div className="workspace-bottom" style={{ height: bottomHeight, minHeight: bottomHeight, maxHeight: bottomHeight }}>
             <div className="workspace-bottom__tabs">
               {['Output', 'Test Results'].map((tab) => (
                 <button
@@ -1223,6 +1220,7 @@ function App() {
   const [output, setOutput] = useState('');
   const [testResults, setTestResults] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
+  const { sidebar: sidebarResize, bottomHeight: bottomResize } = useWorkspaceResize();
 
   // Timer
   const timer = useTimer();
@@ -1260,6 +1258,8 @@ function App() {
 
     // If agent is not currently speaking, switch immediately
     if (!agentVoice.isSpeaking) {
+      // Pause interview (stop recognition) before switching modes so VoiceControls can use the mic
+      agentVoice.pauseInterview();
       setMode(pendingMode);
       setPendingMode(null);
       return;
@@ -1267,6 +1267,7 @@ function App() {
 
     // Otherwise wait for the agent to finish, then switch
     const timeout = setTimeout(() => {
+      agentVoice.pauseInterview();
       setMode(pendingMode);
       setPendingMode(null);
     }, 2000); // max wait 2s even if still speaking
@@ -1275,6 +1276,7 @@ function App() {
       if (!agentVoice.isSpeaking) {
         clearTimeout(timeout);
         clearInterval(checkInterval);
+        agentVoice.pauseInterview();
         setMode(pendingMode);
         setPendingMode(null);
       }
@@ -1284,7 +1286,7 @@ function App() {
       clearTimeout(timeout);
       clearInterval(checkInterval);
     };
-  }, [pendingMode, agentVoice.isSpeaking]);
+  }, [pendingMode, agentVoice.isSpeaking, agentVoice]);
 
   // ── Interview auto-close at 20 min with graceful speech finish ──────────────────
   useEffect(() => {
@@ -1523,7 +1525,10 @@ function App() {
       isRunning={isRunning}
       activeTab={activeTab}
       setActiveTab={setActiveTab}
-      onBackToVideo={() => setMode('video')}
+      onBackToVideo={() => {
+        agentVoice.resumeInterview();
+        setMode('video');
+      }}
       videoOn={videoOn}
       micOn={micOn}
       setVideoOn={setVideoOn}
@@ -1534,6 +1539,10 @@ function App() {
       setShowAgentPanel={setShowAgentPanel}
       candidateData={candidateData}
       agentVoice={agentVoice}
+      sidebarWidth={sidebarResize.size}
+      sidebarOnMouseDown={sidebarResize.onMouseDown}
+      bottomHeight={bottomResize.size}
+      bottomOnMouseDown={bottomResize.onMouseDown}
     />
   );
 }
